@@ -67,10 +67,12 @@ class Workspace(object):
                                           self.env.action_space.shape,
                                           int(cfg.replay_buffer_capacity),
                                           self.device)
-
         # self.video_recorder = VideoRecorder(
             # self.work_dir if cfg.save_video else None)
         self.step = 0
+        self.actor_freeze_freq = cfg.actor_freeze_freq
+        self.ptr_first_unfrozen_actor = 0 #pointer to index of unfrozen actor to be frozen first
+        self.ptr_last_unfrozen_actor = self.agent.num_agents - 1 #pointer to index of unfrozen actor to be frozen last 
 
     def evaluate(self):
         average_episode_reward = 0
@@ -82,7 +84,13 @@ class Workspace(object):
             episode_reward = 0
             while not done:
                 with utils.eval_mode(self.agent):
-                    action = self.agent.act(obs, sample=False)
+                    #sample uniformly an actor from list of actors that are unfrozen, use that sampled actor to take action?
+                    if self.ptr_last_unfrozen_actor == self.ptr_first_unfrozen_actor:
+                        acting_agent_idx = self.ptr_first_unfrozen_actor
+                    else:
+                        acting_agent_idx = np.random.choice(
+                            range(self.ptr_first_unfrozen_actor, self.ptr_last_unfrozen_actor + 1)) 
+                    action = self.agent.act(obs, acting_agent_idx, sample=False)
                 obs, reward, done, _ = self.env.step(action)
                 # self.video_recorder.record(self.env)
                 episode_reward += reward
@@ -128,11 +136,19 @@ class Workspace(object):
                 action = self.env.action_space.sample()
             else:
                 with utils.eval_mode(self.agent):
-                    action = self.agent.act(obs, sample=True)
+                    #sample uniformly an actor from list of actors that are unfrozen, use that sampled actor to take action?
+                    # at some point only one will be unfrozen ... 
+                    if self.ptr_last_unfrozen_actor == self.ptr_first_unfrozen_actor:
+                        acting_agent_idx = self.ptr_first_unfrozen_actor
+                    else:
+                        acting_agent_idx = np.random.choice(
+                            range(self.ptr_first_unfrozen_actor, self.ptr_last_unfrozen_actor + 1))
+                    action = self.agent.act(obs, acting_agent_idx, sample=True)
 
             # run training update
             if self.step >= self.cfg.num_seed_steps:
-                self.agent.update(self.replay_buffer, self.logger, self.step)
+                actors_to_update = range(self.ptr_first_unfrozen_actor, self.ptr_last_unfrozen_actor)
+                self.agent.update(self.replay_buffer, self.logger, self.step, actors_to_update)
 
             next_obs, reward, done, _ = self.env.step(action)
 
@@ -148,8 +164,19 @@ class Workspace(object):
             episode_step += 1
             self.step += 1
 
-
-@hydra.main(config_path='config/train.yaml', strict=True)
+            if self.step % self.actor_freeze_freq == 0:
+                if self.ptr_first_unfrozen_actor < self.ptr_last_unfrozen_actor: #first ptr hasn't reached the end
+                    self.ptr_first_unfrozen_actor += 1
+                elif self.ptr_first_unfrozen_actor == self.ptr_last_unfrozen_actor: #only updating one actor at a time
+                    if self.ptr_last_unfrozen_actor == self.agent.num_agents - 1:
+                        self.ptr_first_unfrozen_actor = 0 #restart from beginning
+                        self.ptr_last_unfrozen_actor = 0
+                    else:
+                        self.ptr_first_unfrozen_actor += 1 #keep incrementing the index of which agent to update
+                        self.ptr_last_unfrozen_actor += 1
+                
+                    
+@hydra.main(config_path='config/viptrain.yaml', strict=True)
 def main(cfg):
     workspace = Workspace(cfg)
     workspace.run()

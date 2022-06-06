@@ -1,10 +1,10 @@
 defaults:
-    - agent: sac
+    - agent: vipsac
 
 env: cheetah_run
 
 # this needs to be specified manually
-experiment: regular_train
+experiment: vip_train
 
 num_train_steps: 1e6
 replay_buffer_capacity: ${num_train_steps}
@@ -13,6 +13,8 @@ num_seed_steps: 5000
 
 eval_frequency: 10000
 num_eval_episodes: 10
+
+actor_freeze_freq: 1e6 #frequency in terms of number of steps at which to freeze another actor 
 
 device: cuda
 
@@ -23,9 +25,7 @@ log_save_tb: true
 # video recorder
 save_video: true
 
-
 seed: 1
-
 
 # hydra configuration
 hydra:

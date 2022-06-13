@@ -22,9 +22,7 @@ class SunriseSAC(object):
         self.device = torch.device("cuda" if args.cuda else "cpu")
 
         self.update_idx = 0
-        self.dropout_matrix = (
-            torch.ones((args.num_ensemble, 1, 1))
-            ).to(self.device)
+        self.dropout_matrix = (torch.ones((args.num_ensemble, 1, 1))).to(self.device)
 
         print("Buidling criti")
         self.critic = EnsembleQNetwork(
@@ -53,20 +51,23 @@ class SunriseSAC(object):
         self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
 
     def select_action(self, state, evaluate=False):
-        next_state_action, _, mean_action = self.policy.sample(state)
-        idx = torch.randint(self.update_idx, high=self.num_ensemble)
-        if evaluate:
-            return mean_action[idx]
-        return next_state_action[idx]
+        with torch.no_grad():
+            next_state_action, _, mean_action = self.policy.sample(state)
+            idx = torch.randint(self.update_idx, high=self.num_ensemble, size=(1,))
+            if evaluate:
+                return mean_action[idx][0]
+            action = next_state_action[idx][0]
+            return action
 
     def roll(self):
-        if self.update_idx < self.num_ensemble - 1:
-            self.dropout_matrix[self.update_idx] = 0
-            self.update_idx += 1
-        else:
-            self.critic.roll()
-            self.critic_target.roll()
-            self.policy.roll()
+        with torch.no_grad():
+            if self.update_idx < self.num_ensemble - 1:
+                self.dropout_matrix[self.update_idx] = 0
+                self.update_idx += 1
+            else:
+                self.critic.roll()
+                self.critic_target.roll()
+                self.policy.roll()
 
     def update_parameters(self, memory, batch_size, updates):
         # Sample a batch from memory
@@ -99,12 +100,8 @@ class SunriseSAC(object):
         qf1, qf2 = self.critic(
             state_batch, action_batch
         )  # Two Q-functions to mitigate positive bias in the policy improvement step
-        qf1_loss = torch.mean(
-            torch.sum((qf1 - next_q_value) ** 2, dim=-1)
-        )
-        qf2_loss = torch.mean(
-            torch.sum((qf2 - next_q_value) ** 2, dim=-1)
-        )
+        qf1_loss = torch.mean(torch.sum((qf1 - next_q_value) ** 2, dim=-1))
+        qf2_loss = torch.mean(torch.sum((qf2 - next_q_value) ** 2, dim=-1))
         qf_loss = qf1_loss + qf2_loss
 
         self.critic_optim.zero_grad()
@@ -116,9 +113,7 @@ class SunriseSAC(object):
         qf1_pi, qf2_pi = self.critic(state_batch, pi)
         qf_pi = torch.min(qf1_pi, qf2_pi)
 
-        policy_loss = (
-            self.dropout_matrix * ((self.alpha * log_pi) - qf_pi)
-        ).mean()
+        policy_loss = (self.dropout_matrix * ((self.alpha * log_pi) - qf_pi)).mean()
 
         self.policy_optim.zero_grad()
         policy_loss.backward()
@@ -148,7 +143,7 @@ class SunriseSAC(object):
             policy_loss.item(),
             alpha_loss.item(),
             alpha_tlogs.item(),
-            0.0
+            0.0,
         )
 
     # Save model parameters

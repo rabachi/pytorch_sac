@@ -11,13 +11,13 @@ random_dropout: False
 random_dropout_percentage: 0.8
 seed: 42
 batch_size: 256
-num_steps: 5000000
+num_steps: 1000000
 hidden_size: 256
 updates_per_step: 1
-roll_freq: 100000
+roll_freq: 25000
 start_steps: 0
 target_update_interval: 1
 num_ensemble: 5
 temperature: 20
-replay_size: 3000000
+replay_size: 1000000
 cuda: True

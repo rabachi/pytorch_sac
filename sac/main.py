@@ -60,6 +60,8 @@ def main(args):
     total_numsteps = 0
     updates = 0
 
+    # torch.autograd.set_detect_anomaly(True)
+
     for i_episode in itertools.count(1):
         episode_reward = 0
         episode_steps = 0
@@ -82,10 +84,11 @@ def main(args):
                         policy_loss,
                         ent_loss,
                         alpha,
-                        error_loss
+                        error_loss,
                     ) = agent.update_parameters(memory, args.batch_size, updates)
-                    
-                    if total_numsteps+1 % args.roll_freq == 0:
+
+                    if total_numsteps + 1 % args.roll_freq == 0:
+                        print("rolled")
                         agent.roll()
 
                     writer.add_scalar("loss/critic_1", critic_1_loss, updates)
@@ -101,10 +104,11 @@ def main(args):
                     )
                     updates += 1
 
-            next_state, reward, done, _ = env.step(action)  # Step
-            episode_steps += 1
-            total_numsteps += 1
-            episode_reward += reward
+            with torch.no_grad():
+                next_state, reward, done, _ = env.step(action)  # Step
+                episode_steps += 1
+                total_numsteps += 1
+                episode_reward += reward
 
             # Ignore the "done" signal if it comes from hitting the time horizon.
             # (https://github.com/openai/spinningup/blob/master/spinup/algos/sac/sac.py)

@@ -26,9 +26,10 @@ log_save_tb: true
 save_video: true
 
 seed: 1
+hydra_dir_end: default
 
 # hydra configuration
 hydra:
     name: ${env}
     run:
-        dir: /scratch/gobi1/abachiro/pytorch_sac_results/exp/${now:%Y.%m.%d}/${now:%H%M}_${agent.name}_${experiment}_${env}_${seed} #should add slurm job id
+        dir: /scratch/gobi1/abachiro/pytorch_sac_results/exp/${hydra_dir_end}_${seed} #should add slurm job id

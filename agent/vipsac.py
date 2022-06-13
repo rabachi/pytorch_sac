@@ -98,7 +98,7 @@ class VIPSACAgent(Agent):
                 target_Q = target_Q.detach()
 
             # get current Q estimates
-            current_Q1 = self.critic(obs, action, agent_idx) 
+            current_Q1 = self.critic(obs, action, agent_idx)
             critic_loss += F.mse_loss(current_Q1, target_Q)
         
         logger.log('train_critic/loss', critic_loss, step)

@@ -15,4 +15,4 @@ echo "${SLURM_ARRAY_TASK_ID}"
 
 # python viptrain.py env=cartpole_swingup seed=${SLURM_ARRAY_TASK_ID}
 
-python train.py env=cartpole_swingup seed=${SLURM_ARRAY_TASK_ID}
+python train.py env=cartpole_swingup hydra_dir_end=${SLURM_JOB_ID} seed=${SLURM_ARRAY_TASK_ID}

@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import torch
 import torch.nn.functional as F
 from torch.optim import Adam
@@ -18,6 +19,7 @@ class SunriseSAC(object):
         self.automatic_entropy_tuning = args.automatic_entropy_tuning
         self.temperature = args.temperature
         self.num_ensemble = args.num_ensemble
+        action_shape = action_space.shape[0]
 
         self.device = torch.device("cuda" if args.cuda else "cpu")
 
@@ -26,13 +28,13 @@ class SunriseSAC(object):
 
         print("Buidling criti")
         self.critic = EnsembleQNetwork(
-            num_inputs, action_space.shape[1], args.hidden_size, args.num_ensemble
+            num_inputs, action_shape, args.hidden_size, args.num_ensemble
         ).to(device=self.device)
         self.critic_optim = Adam(self.critic.parameters(), lr=args.lr)
 
         print("Buidling critic_target")
         self.critic_target = EnsembleQNetwork(
-            num_inputs, action_space.shape[1], args.hidden_size, args.num_ensemble
+            num_inputs, action_shape, args.hidden_size, args.num_ensemble
         ).to(self.device)
         hard_update(self.critic_target, self.critic)
 
@@ -46,18 +48,19 @@ class SunriseSAC(object):
 
         print("Buidling policy")
         self.policy = EnsembleGaussianPolicy(
-            num_inputs, action_space.shape[1], args.hidden_size, args.num_ensemble
+            num_inputs, action_shape, args.hidden_size, args.num_ensemble
         ).to(self.device)
         self.policy_optim = Adam(self.policy.parameters(), lr=args.lr)
 
     def select_action(self, state, evaluate=False):
         with torch.no_grad():
+            state = torch.unsqueeze(torch.from_numpy(state).float().cuda(), 0)
             next_state_action, _, mean_action = self.policy.sample(state)
             idx = torch.randint(self.update_idx, high=self.num_ensemble, size=(1,))
             if evaluate:
-                return mean_action[idx][0]
-            action = next_state_action[idx][0]
-            return action
+                return np.array((mean_action[idx][0]).squeeze().cpu())
+            action = (next_state_action[idx][0]).squeeze()
+            return np.array(action.cpu())
 
     def roll(self):
         with torch.no_grad():

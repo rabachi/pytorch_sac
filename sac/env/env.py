@@ -14,7 +14,7 @@ from stable_baselines3.common.vec_env.dummy_vec_env import DummyVecEnv
 from stable_baselines3.common.vec_env.subproc_vec_env import SubprocVecEnv
 from stable_baselines3.common.vec_env.base_vec_env import VecEnv
 
-from bayesian_daml.sac.env.wrappers import (
+from sac.env.wrappers import (
     BraxWrapper,
     MetaworldWrapper,
     PyTorchWrapper,

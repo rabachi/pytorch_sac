@@ -19,14 +19,14 @@ def main(args):
 
     # Environment
     # env = NormalizedActions(gym.make(args.env_name))
-    # env = gym.make(args.env_name)
-    env = setup_environment(
-        type="brax",
-        env_id="ant",
-        n_envs=1,
-        device="cuda",
-        seed=4,
-    )
+    env = gym.make(args.env_name)
+    # env = setup_environment(
+    #     type="brax",
+    #     env_id="ant",
+    #     n_envs=1,
+    #     device="cuda",
+    #     seed=4,
+    # )
 
     # env.seed(args.seed)
     env.action_space.seed(args.seed)
@@ -38,7 +38,7 @@ def main(args):
     if args.algorithm == "sac":
         agent = SAC(env.observation_space.shape[1], env.action_space, args)
     elif args.algorithm == "sunrise_sac":
-        agent = SunriseSAC(env.observation_space.shape[1], env.action_space, args)
+        agent = SunriseSAC(env.observation_space.shape[0], env.action_space, args)
     else:
         raise ValueError("Unknown algorithm")
 
@@ -99,7 +99,8 @@ def main(args):
                     writer.add_scalar("entropy_temperature/alpha", alpha, updates)
                     writer.add_scalar(
                         "actions/action_norm",
-                        torch.norm(action.detach().cpu()).item(),
+                        # torch.norm(action.detach().cpu()).item(),
+                        np.linalg.norm(action),
                         updates,
                     )
                     updates += 1
@@ -129,7 +130,8 @@ def main(args):
                 i_episode,
                 total_numsteps,
                 episode_steps,
-                round(episode_reward.cpu().item(), 2),
+                round(episode_reward, 2),
+                # round(episode_reward.cpu().item(), 2),
             )
         )
 
@@ -156,7 +158,8 @@ def main(args):
             print("----------------------------------------")
             print(
                 "Test Episodes: {}, Avg. Reward: {}".format(
-                    episodes, round(avg_reward.cpu().item(), 2)
+                    episodes, round(avg_reward, 2)
+                    # round(avg_reward.cpu().item(), 2)
                 )
             )
             print("----------------------------------------")

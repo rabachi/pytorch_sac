@@ -17,7 +17,7 @@ updates_per_step: 1
 roll_freq: 25000
 start_steps: 0
 target_update_interval: 1
-num_ensemble: 5
+num_ensemble: 2 #10 #5
 temperature: 20
 replay_size: 1000000
 cuda: True

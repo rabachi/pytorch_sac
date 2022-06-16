@@ -17,16 +17,25 @@ class DataBuffer:
 
         self.obs_shape = obs_space.shape
         self.act_shape = act_space.shape
-
-        self.s = torch.zeros((capacity, *obs_space.shape[1:]), dtype=torch.float).to(
+        # print(*obs_space.shape)
+        self.s = torch.zeros((capacity, *obs_space.shape[0:]), dtype=torch.float).to(
             self.device
         )
-        self.s_n = torch.zeros((capacity, *obs_space.shape[1:]), dtype=torch.float).to(
+        self.s_n = torch.zeros((capacity, *obs_space.shape[0:]), dtype=torch.float).to(
             self.device
         )
-        self.a = torch.zeros((capacity, *act_space.shape[1:]), dtype=torch.float).to(
+        self.a = torch.zeros((capacity, *act_space.shape[0:]), dtype=torch.float).to(
             self.device
         )
+        # self.s = torch.zeros((capacity, *obs_space.shape[1:]), dtype=torch.float).to(
+        #     self.device
+        # )
+        # self.s_n = torch.zeros((capacity, *obs_space.shape[1:]), dtype=torch.float).to(
+        #     self.device
+        # )
+        # self.a = torch.zeros((capacity, *act_space.shape[1:]), dtype=torch.float).to(
+        #     self.device
+        # )
         self.r = torch.zeros((capacity, 1)).to(self.device)
         self.d = torch.zeros((capacity, 1)).to(self.device)
         self.t = torch.zeros((capacity, 1)).to(self.device)

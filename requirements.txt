@@ -1,0 +1,6 @@
+tensorboard
+torch
+termcolor
+hydra-core==0.11.0
+gym
+gym[mujoco]

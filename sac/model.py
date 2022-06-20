@@ -1,3 +1,4 @@
+import math
 from typing import List, Optional, Sequence
 import torch
 import torch.nn as nn
@@ -302,20 +303,20 @@ class EnsembleGaussianPolicy(nn.Module):
         mean = self.mean_head2(mean1)
 
         log_ = F.relu(self.log_std_head1(x2))
-        log_std = torch.exp(self.log_std_head2(log_)) + epsilon
+        log_std = self.log_std_head2(log_)
         log_std = torch.clamp(log_std, min=LOG_SIG_MIN, max=LOG_SIG_MAX)
         return mean, log_std
 
     def sample(self, state):
         mean, log_std = self.forward(state)
-        std = F.softplus(log_std)
+        std = torch.exp(log_std)
         normal = Normal(mean, std)
         x_t = normal.rsample()  # for reparameterization trick (mean + std * N(0,1))
         y_t = torch.tanh(x_t)
         action = y_t * self.action_scale + self.action_bias
         log_prob = normal.log_prob(x_t)
         # Enforcing Action Bound
-        log_prob -= torch.log(self.action_scale * (1 - y_t.pow(2)) + epsilon)
+        log_prob -= 2 * (math.log(2.0) - x_t - F.softplus(-2.0 * x_t))
         log_prob = log_prob.sum(-1, keepdim=True)
         mean = torch.tanh(mean) * self.action_scale + self.action_bias
         return action, log_prob, mean

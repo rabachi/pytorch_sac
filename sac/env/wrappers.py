@@ -17,6 +17,10 @@ class PyTorchWrapper:
 
         self.observation_space = env.observation_space
         self.action_space = env.action_space
+        self.action_high = env.action_space.high
+        self.action_low = env.action_space.low
+        self.action_space.high = np.ones_like(self.action_high)
+        self.action_space.low = -np.ones_like(self.action_low)
 
         self.is_3d_observation = (
             isinstance(self.observation_space, Box)
@@ -35,11 +39,16 @@ class PyTorchWrapper:
             )
 
         self.device = device
+        self._max_episode_steps = 1000
 
     def step(self, action):
+        if isinstance(action, torch.Tensor):
+            action = action.detach().cpu().numpy()
         if not self.vec_env:
-            action = action.squeeze(0)
-        action = action.detach().cpu().numpy()
+            action = action.squeeze()
+        action = action * (self.action_space.high - self.action_space.low) / 2 + (
+            (self.action_space.high + self.action_space.low) / 2
+        )
         obs, reward, done, info = self.env.step(action)
         if self.is_3d_observation:
             obs = wrap_3d_obs(obs)

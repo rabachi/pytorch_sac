@@ -1,3 +1,4 @@
+import os
 import random
 import numpy as np
 import torch
@@ -27,15 +28,6 @@ class DataBuffer:
         self.a = torch.zeros((capacity, *act_space.shape[0:]), dtype=torch.float).to(
             self.device
         )
-        # self.s = torch.zeros((capacity, *obs_space.shape[1:]), dtype=torch.float).to(
-        #     self.device
-        # )
-        # self.s_n = torch.zeros((capacity, *obs_space.shape[1:]), dtype=torch.float).to(
-        #     self.device
-        # )
-        # self.a = torch.zeros((capacity, *act_space.shape[1:]), dtype=torch.float).to(
-        #     self.device
-        # )
         self.r = torch.zeros((capacity, 1)).to(self.device)
         self.d = torch.zeros((capacity, 1)).to(self.device)
         self.t = torch.zeros((capacity, 1)).to(self.device)
@@ -80,6 +72,28 @@ class DataBuffer:
         else:
             return self.fill_counter
 
+    def save(self, path):
+        print("Saving buffer")
+        torch.save(self.s, os.path.join(path, "s.torch"))
+        torch.save(self.s_n, os.path.join(path, "s_n.torch"))
+        torch.save(self.a, os.path.join(path, "a.torch"))
+        torch.save(self.r, os.path.join(path, "r.torch"))
+        torch.save(self.d, os.path.join(path, "d.torch"))
+        with open(os.path.join(path, "meta.buffer"), "w") as f:
+            f.write(str(self.fill_counter) + "\n")
+            f.write(str(self.full))
+
+    def load(self, path):
+        self.s = torch.load(os.path.join(path, "s.torch"))
+        self.s_n = torch.load(os.path.join(path, "s_n.torch"))
+        self.a = torch.load(os.path.join(path, "a.torch"))
+        self.r = torch.load(os.path.join(path, "r.torch"))
+        self.d = torch.load(os.path.join(path, "d.torch"))
+        with open(os.path.join(path, "meta.buffer"), "r") as f:
+            self.fill_counter = int(f.readline())
+            self.full = "True" == f.readline()
+
+        print(f"reset buffer to step {self.fill_counter} and full {self.full}")
 
 class ReplayMemory:
     def __init__(self, capacity, seed):

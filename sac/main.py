@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import os
 import gym
 import numpy as np
 import itertools
@@ -9,8 +10,7 @@ import hydra
 from sac.env.env import setup_environment
 
 from sac.replay_memory import DataBuffer, ReplayMemory
-from sac.sac import SAC
-from sac.sunrise import SunriseSAC
+from sac.viper_sac import ViperSAC
 
 
 @hydra.main(config_path="../config", config_name="sac_test")
@@ -35,26 +35,31 @@ def main(args):
     np.random.seed(args.seed)
 
     # Agent
-    if args.algorithm == "sac":
-        agent = SAC(env.observation_space.shape[1], env.action_space, args)
-    elif args.algorithm == "sunrise_sac":
-        agent = SunriseSAC(env.observation_space.shape[0], env.action_space, args)
+    if args.algorithm == "viper_sac":
+        agent = ViperSAC(env.observation_space.shape[0], env.action_space, args)
     else:
         raise ValueError("Unknown algorithm")
 
     # Tesnorboard
     writer = SummaryWriter(
         "{}_{}_{}_{}".format(
-            args.algorithm,
-            args.env_name,
-            args.policy,
-            "autotune" if args.automatic_entropy_tuning else "",
+            args.algorithm, args.env_name, args.policy, args.num_ensemble
         )
     )
 
     # Memory
     # memory = ReplayMemory(args.replay_size, args.seed)
     memory = DataBuffer(args.replay_size, env, device="cuda" if args.cuda else "cpu")
+
+    if os.path.exists("train.meta"):
+        agent.load_checkpoint(args.env_name)
+        memory.load(".")
+        with open("train.meta", "r") as f:
+            total_numsteps = int(f.read())
+            updates = args.updates_per_step * total_numsteps
+    else:
+        total_numsteps = 0
+        updates = 0
 
     # Training Loop
     total_numsteps = 0
@@ -84,7 +89,6 @@ def main(args):
                         policy_loss,
                         ent_loss,
                         alpha,
-                        error_loss,
                     ) = agent.update_parameters(memory, args.batch_size, updates)
 
                     if total_numsteps + 1 % args.roll_freq == 0:
@@ -95,7 +99,6 @@ def main(args):
                     # writer.add_scalar("loss/critic_2", critic_2_loss, updates)
                     writer.add_scalar("loss/policy", policy_loss, updates)
                     writer.add_scalar("loss/entropy_loss", ent_loss, updates)
-                    writer.add_scalar("discor/error", error_loss, updates)
                     writer.add_scalar("entropy_temperature/alpha", alpha, updates)
                     writer.add_scalar(
                         "actions/action_norm",
@@ -135,34 +138,41 @@ def main(args):
             )
         )
 
-        if i_episode % 100 == 0 and args.eval is True:
-            with torch.no_grad():
-                avg_reward = 0.0
-                episodes = 10
-                for _ in range(episodes):
-                    state = env.reset()
-                    episode_reward = 0
-                    done = False
-                    while not done:
-                        action = agent.select_action(state, evaluate=True)
+        if i_episode % 50 == 0:
+            agent.save_checkpoint(args.env_name)
+            memory.save(".")
+            with open("train.meta", "w") as f:
+                f.write(str(total_numsteps))
+            print("checkpoint done")
+            if args.eval is True:
+                with torch.no_grad():
+                    avg_reward = 0.0
+                    episodes = 10
+                    for _ in range(episodes):
+                        state = env.reset()
+                        episode_reward = 0
+                        done = False
+                        while not done:
+                            action = agent.select_action(state, evaluate=True)
 
-                        next_state, reward, done, _ = env.step(action)
-                        episode_reward += reward
+                            next_state, reward, done, _ = env.step(action)
+                            episode_reward += reward
 
-                        state = next_state
-                    avg_reward += episode_reward
-                avg_reward /= episodes
+                            state = next_state
+                        avg_reward += episode_reward
+                    avg_reward /= episodes
 
-            writer.add_scalar("avg_reward/test", avg_reward, total_numsteps)
+                writer.add_scalar("avg_reward/test", avg_reward, total_numsteps)
 
-            print("----------------------------------------")
-            print(
-                "Test Episodes: {}, Avg. Reward: {}".format(
-                    episodes, round(avg_reward, 2)
-                    # round(avg_reward.cpu().item(), 2)
+                print("----------------------------------------")
+                print(
+                    "Test Episodes: {}, Avg. Reward: {}".format(
+                        episodes,
+                        round(avg_reward, 2)
+                        # round(avg_reward.cpu().item(), 2)
+                    )
                 )
-            )
-            print("----------------------------------------")
+                print("----------------------------------------")
 
     env.close()
 
